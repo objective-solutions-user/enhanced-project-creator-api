@@ -55,6 +55,7 @@ public class ProjectBuilderResource {
 	    
 	    final Project newProject;
 	    try {
+
 	    	Project projectByKey = getProjectByKey(data.key);
 	    	if (projectByKey != null) {
 	    		response.idOfCreatedProject = projectByKey.getId();
