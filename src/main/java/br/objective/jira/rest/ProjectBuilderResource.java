@@ -11,6 +11,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.atlassian.jira.bc.projectroles.ProjectRoleService;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.issue.CustomFieldManager;
@@ -35,6 +38,8 @@ import com.atlassian.jira.util.SimpleErrorCollection;
 
 @Path("/project")
 public class ProjectBuilderResource {
+	private static final Logger logger = LoggerFactory.getLogger(ProjectBuilderResource.class);
+	
 
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
@@ -48,6 +53,8 @@ public class ProjectBuilderResource {
 	
 	private ProjectBuilderResponse createNewProject(ProjectData data)
 	{
+		logger.debug("Request to create new project received " + data);
+		
 		ProjectBuilderResponse response = new ProjectBuilderResponse();
 	    ApplicationUser lead = ComponentAccessor.getUserManager().getUserByKey(data.lead);
 	    if (lead == null) 
@@ -55,9 +62,9 @@ public class ProjectBuilderResource {
 	    
 	    final Project newProject;
 	    try {
-
 	    	Project projectByKey = getProjectByKey(data.key);
 	    	if (projectByKey != null) {
+	    		logger.debug("Requested project " + data.key + " already exists. Nothing to do");
 	    		response.idOfCreatedProject = projectByKey.getId();
 	    		return response;
 	    	}
@@ -154,37 +161,51 @@ public class ProjectBuilderResource {
 		FieldConfigSchemeManager fieldConfigSchemeManager = ComponentAccessor.getFieldConfigSchemeManager();
 		FieldConfigManager fieldConfigManager = ComponentAccessor.getComponent(FieldConfigManager.class);
 		
-		for (Long cfId : data.customFields) {
-			CustomField customField = customFieldManager.getCustomFieldObject(cfId);
+		for (CustomFieldData cf : data.customFields) {
+			CustomField customField = customFieldManager.getCustomFieldObject(cf.id);
 			if (customField == null) 
-				throw new IllegalArgumentException("Custom Field id " + cfId + " not found");
+				throw new IllegalArgumentException("Custom Field id " + cf.id + " not found");
 			
-            for (FieldConfigScheme fieldConfigScheme : fieldConfigSchemeManager.getConfigSchemesForField(customField)){
-                Long fcsId = fieldConfigScheme.getId();
-                FieldConfigScheme cfConfigScheme = fieldConfigSchemeManager.getFieldConfigScheme(fcsId);
-                FieldConfigScheme.Builder cfSchemeBuilder = new FieldConfigScheme.Builder(cfConfigScheme);
-                FieldConfig config = fieldConfigManager.getFieldConfig(fcsId);
+			FieldConfigScheme fieldConfigScheme = getFieldConfigSchemeForCustomField(customField, cf.schemeId);
+			
+			if (fieldConfigScheme == null)
+				throw new IllegalArgumentException("Custom Field id " + cf.id + " has no field scheme id " + cf.schemeId);
+						
+            Long fcsId = fieldConfigScheme.getId();
+            
+            FieldConfigScheme cfConfigScheme = fieldConfigSchemeManager.getFieldConfigScheme(fcsId);
+            FieldConfigScheme.Builder cfSchemeBuilder = new FieldConfigScheme.Builder(cfConfigScheme);
+            FieldConfig config = fieldConfigManager.getFieldConfig(fcsId);
 
-                HashMap<String, FieldConfig> configs = new HashMap<String, FieldConfig>();
+            HashMap<String, FieldConfig> configs = new HashMap<String, FieldConfig>();
 
-                for (String issueTypeId : fieldConfigScheme.getAssociatedIssueTypeIds())
-                    configs.put(issueTypeId, config);
+            for (String issueTypeId : fieldConfigScheme.getAssociatedIssueTypeIds())
+                configs.put(issueTypeId, config);
 
-                cfSchemeBuilder.setConfigs(configs);
-                cfConfigScheme = cfSchemeBuilder.toFieldConfigScheme();
+            cfSchemeBuilder.setConfigs(configs);
+            cfConfigScheme = cfSchemeBuilder.toFieldConfigScheme();
 
-                List<Long> projectIdList = fieldConfigScheme.getAssociatedProjectIds();
-                projectIdList.add(newProject.getId());
+            List<Long> projectIdList = fieldConfigScheme.getAssociatedProjectIds();
+            projectIdList.add(newProject.getId());
 
-                List<JiraContextNode> contexts = CustomFieldUtils.buildJiraIssueContexts(false,
-                        projectIdList.toArray(new Long[projectIdList.size()]),
-                        ComponentAccessor.getProjectManager());
+            List<JiraContextNode> contexts = CustomFieldUtils.buildJiraIssueContexts(false,
+                    projectIdList.toArray(new Long[projectIdList.size()]),
+                    ComponentAccessor.getProjectManager());
 
-                fieldConfigSchemeManager.updateFieldConfigScheme
-                    (cfConfigScheme, contexts, customFieldManager.getCustomFieldObject(customField.getId()));
-            }
+            fieldConfigSchemeManager.updateFieldConfigScheme
+                (cfConfigScheme, contexts, customFieldManager.getCustomFieldObject(customField.getId()));
+            
         }
         customFieldManager.refresh();
+	}
+
+	private FieldConfigScheme getFieldConfigSchemeForCustomField(CustomField customField, Long schemeId) {
+		FieldConfigSchemeManager fieldConfigSchemeManager = ComponentAccessor.getFieldConfigSchemeManager();
+		for (FieldConfigScheme fieldConfigScheme : fieldConfigSchemeManager.getConfigSchemesForField(customField))
+            if (fieldConfigScheme.getId().equals(schemeId))
+            	return fieldConfigScheme;
+		
+		return null;
 	}
 
 	private void associateIssueTypeScheme(ProjectData data, Project newProject) {
