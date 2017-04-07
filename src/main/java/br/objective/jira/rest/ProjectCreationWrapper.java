@@ -11,7 +11,7 @@ public class ProjectCreationWrapper {
 			Project newProject = ComponentAccessor.getProjectManager().createProject(data.name,
 	                data.key,
 	                data.description,
-	                ComponentAccessor.getJiraAuthenticationContext().getUser().getKey(),
+	                data.lead,
 	                "",
 	                AssigneeTypes.PROJECT_LEAD,
 	                null);
