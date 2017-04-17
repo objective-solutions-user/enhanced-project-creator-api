@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import com.atlassian.jira.bc.projectroles.ProjectRoleService;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.issue.CustomFieldManager;
-import com.atlassian.jira.issue.IssueFieldConstants;
 import com.atlassian.jira.issue.context.JiraContextNode;
 import com.atlassian.jira.issue.customfields.CustomFieldUtils;
 import com.atlassian.jira.issue.fields.CustomField;
@@ -75,9 +74,6 @@ public class ProjectBuilderResource {
 	
 	    String currentAction = "";
 	    try {
-		    currentAction = "associating IssueTypeScheme";
-		    associateIssueTypeScheme(data, newProject);
-		    
 	    	currentAction = "associating WorkflowScheme";
 	    	associateWorkflowScheme(data, newProject);
 	    	
@@ -205,35 +201,6 @@ public class ProjectBuilderResource {
             if (fieldConfigScheme.getId().equals(schemeId))
             	return fieldConfigScheme;
 		
-		return null;
-	}
-
-	private void associateIssueTypeScheme(ProjectData data, Project newProject) {
-		Long issueTypeSchemeId = data.issueTypeScheme;
-		if (issueTypeSchemeId == null)
-			return;
-		
-		FieldConfigScheme issueTypeScheme = findIssueTypeSchemeGivenId(issueTypeSchemeId);
-		if (issueTypeScheme == null)
-			throw new IllegalArgumentException("IssueTypeScheme id " + issueTypeSchemeId + " not found.");
-		
-	    List<JiraContextNode> jiraIssueContexts = CustomFieldUtils.buildJiraIssueContexts(true, 
-	    		new Long[]{newProject.getId()}, 
-	    		ComponentAccessor.getProjectManager());
-	    
-	    FieldConfigSchemeManager fieldConfigSchemeManager = ComponentAccessor.getFieldConfigSchemeManager();
-	    fieldConfigSchemeManager.updateFieldConfigScheme(issueTypeScheme,
-	    		jiraIssueContexts,
-	    		ComponentAccessor.getFieldManager().getConfigurableField(IssueFieldConstants.ISSUE_TYPE));
-	}
-
-	private FieldConfigScheme findIssueTypeSchemeGivenId(Long issueTypeSchemeId) {
-		List<FieldConfigScheme> allSchemes = ComponentAccessor.getIssueTypeSchemeManager().getAllSchemes();
-		
-		for (FieldConfigScheme aScheme : allSchemes) {
-			if (aScheme.getId().equals(issueTypeSchemeId)) 
-				return aScheme;
-		}
 		return null;
 	}
 
