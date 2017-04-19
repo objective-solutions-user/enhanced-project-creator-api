@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import com.atlassian.jira.bc.projectroles.ProjectRoleService;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.issue.CustomFieldManager;
+import com.atlassian.jira.issue.IssueFieldConstants;
 import com.atlassian.jira.issue.context.JiraContextNode;
 import com.atlassian.jira.issue.customfields.CustomFieldUtils;
 import com.atlassian.jira.issue.fields.CustomField;
@@ -97,6 +98,9 @@ public class ProjectBuilderResource {
 		    
 		    currentAction = "associating CustomFields";
 		    associateCustomFields(data, newProject);
+		    
+		    currentAction = "associating IssueTypeScheme";
+		    associateIssueTypeScheme(data, newProject);		    
 	    }
 	    catch(Exception e) {
 	    	response.withError("An error ocurred when " + currentAction, e);
@@ -258,4 +262,36 @@ public class ProjectBuilderResource {
 	    
 	    ComponentAccessor.getIssueTypeScreenSchemeManager().addSchemeAssociation(newProject, issueTypeScreenScheme);
 	}
+	
+	private void associateIssueTypeScheme(ProjectData data, Project newProject) {
+		Long issueTypeSchemeId = data.issueTypeScheme;
+		if (issueTypeSchemeId == null)
+			return;
+		
+		FieldConfigScheme issueTypeScheme = findIssueTypeSchemeGivenId(issueTypeSchemeId);
+		if (issueTypeScheme == null)
+			throw new IllegalArgumentException("IssueTypeScheme id " + issueTypeSchemeId + " not found.");
+		
+		LinkedList<Long> projects = new LinkedList<Long>(issueTypeScheme.getAssociatedProjectIds());
+		projects.add(newProject.getId());
+		
+	    List<JiraContextNode> jiraIssueContexts = CustomFieldUtils.buildJiraIssueContexts(false, 
+	    		projects.toArray(new Long[0]), 
+	    		ComponentAccessor.getProjectManager());
+	    
+	    FieldConfigSchemeManager fieldConfigSchemeManager = ComponentAccessor.getFieldConfigSchemeManager();
+	    fieldConfigSchemeManager.updateFieldConfigScheme(issueTypeScheme,
+	    		jiraIssueContexts,
+	    		ComponentAccessor.getFieldManager().getConfigurableField(IssueFieldConstants.ISSUE_TYPE));
+	}
+
+	private FieldConfigScheme findIssueTypeSchemeGivenId(Long issueTypeSchemeId) {
+		List<FieldConfigScheme> allSchemes = ComponentAccessor.getIssueTypeSchemeManager().getAllSchemes();
+		
+		for (FieldConfigScheme aScheme : allSchemes) {
+			if (aScheme.getId().equals(issueTypeSchemeId)) 
+				return aScheme;
+		}
+		return null;
+	}	
 }
