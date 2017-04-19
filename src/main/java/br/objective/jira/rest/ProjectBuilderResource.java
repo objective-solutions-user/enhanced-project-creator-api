@@ -1,6 +1,8 @@
 package br.objective.jira.rest;
 
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -90,11 +92,11 @@ public class ProjectBuilderResource {
 	    	currentAction = "associating PermissionScheme"; 
 		    associatePermissionScheme(data, newProject);
 		    	    	
+		    currentAction = "associating users in roles";
+		    response.addWarnings(associateUsersInRoles(data, newProject));
+		    
 		    currentAction = "associating CustomFields";
 		    associateCustomFields(data, newProject);
-		    
-		    currentAction = "associating users in roles";
-		    associateUsersInRoles(data, newProject);
 	    }
 	    catch(Exception e) {
 	    	response.withError("An error ocurred when " + currentAction, e);
@@ -109,25 +111,34 @@ public class ProjectBuilderResource {
 	    return response;
 	}
 
-	private void associateUsersInRoles(ProjectData data, Project newProject) {
-		ProjectRoleManager roleManager = ComponentAccessor.getComponentOfType(ProjectRoleManager.class);
-		ProjectRoleService roleService = ComponentAccessor.getComponentOfType(ProjectRoleService.class);
+	private List<String> associateUsersInRoles(ProjectData data, Project newProject) {
+		final ProjectRoleManager roleManager = ComponentAccessor.getComponentOfType(ProjectRoleManager.class);
+		final ProjectRoleService roleService = ComponentAccessor.getComponentOfType(ProjectRoleService.class);
 		
-		StringBuffer errors = new StringBuffer();
+		final List<String> warnings = new LinkedList<String>();
 		for (Entry<String, List<String>> projectRole : data.userInRoles.entrySet()) {
 			ProjectRole aRole = roleManager.getProjectRole(projectRole.getKey());
 			if (aRole == null) {
-				errors.append("Project role " + projectRole.getKey() + " not found\n");
+				warnings.add("Project role " + projectRole.getKey() + " not found\n");
 				continue;
+			}
+			Iterator<String> it = projectRole.getValue().iterator();
+			while(it.hasNext()) {
+				String user = it.next();
+				if (ComponentAccessor.getUserManager().getUserByKey(user)==null) {
+					warnings.add("User " + user + " was not found, therefore it was not added to the project");
+					it.remove();
+				}
 			}
 			ErrorCollection errorCollection = new SimpleErrorCollection();
 			roleService.addActorsToProjectRole(projectRole.getValue(), aRole, newProject, AbstractRoleActor.USER_ROLE_ACTOR_TYPE, errorCollection);
 			
 			if (errorCollection.hasAnyErrors()) 
 				for (String errorMessage : errorCollection.getErrorMessages()) 
-					errors.append(errorMessage+"\n");
+					warnings.add(errorMessage+"\n");
 				
 		}
+		return warnings;
 	}
 
 	private Project createBasicProject(ProjectData data, ProjectBuilderResponse response, ApplicationUser lead) {
@@ -182,7 +193,8 @@ public class ProjectBuilderResource {
             cfSchemeBuilder.setConfigs(configs);
             cfConfigScheme = cfSchemeBuilder.toFieldConfigScheme();
 
-            List<Long> projectIdList = fieldConfigScheme.getAssociatedProjectIds();
+            LinkedList<Long> projectIdList = new LinkedList<Long>();
+            projectIdList.addAll(fieldConfigScheme.getAssociatedProjectIds());
             projectIdList.add(newProject.getId());
 
             List<JiraContextNode> contexts = CustomFieldUtils.buildJiraIssueContexts(false,
