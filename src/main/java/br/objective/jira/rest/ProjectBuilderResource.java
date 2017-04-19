@@ -55,9 +55,6 @@ public class ProjectBuilderResource {
 		logger.debug("Request to create new project received " + data);
 		
 		ProjectBuilderResponse response = new ProjectBuilderResponse();
-	    ApplicationUser lead = ComponentAccessor.getUserManager().getUserByKey(data.lead);
-	    if (lead == null) 
-	    	return response.withError("Lead id " + data.lead + " not found.");
 	    
 	    final Project newProject;
 	    try {
@@ -67,6 +64,10 @@ public class ProjectBuilderResource {
 	    		response.idOfCreatedProject = projectByKey.getId();
 	    		return response;
 	    	}
+		    ApplicationUser lead = ComponentAccessor.getUserManager().getUserByKey(data.lead);
+		    if (lead == null) 
+		    	return response.withError("Lead id " + data.lead + " not found.");
+
 	    	newProject = createBasicProject(data, response, lead);
 	    }catch(Exception e) {
 	    	return response.withError("Failed to created project", e);
