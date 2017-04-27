@@ -13,6 +13,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,7 @@ import com.atlassian.jira.issue.fields.config.manager.FieldConfigManager;
 import com.atlassian.jira.issue.fields.config.manager.FieldConfigSchemeManager;
 import com.atlassian.jira.issue.fields.layout.field.FieldConfigurationScheme;
 import com.atlassian.jira.issue.fields.screen.issuetype.IssueTypeScreenScheme;
+import com.atlassian.jira.notification.NotificationSchemeManager;
 import com.atlassian.jira.project.Project;
 import com.atlassian.jira.scheme.Scheme;
 import com.atlassian.jira.security.roles.ProjectRole;
@@ -76,38 +78,39 @@ public class ProjectBuilderResource {
 	    	return response.withError("Failed to created project", e);
 	    }
 	
-	    String currentAction = "";
+	    LinkedList<String> actionLog = new LinkedList<String>();
 	    try {
-	    	currentAction = "associating WorkflowScheme";
+	    	actionLog.add("associating WorkflowScheme");
 	    	associateWorkflowScheme(data, newProject);
 	    	
-		    currentAction = "associating IssueTypeScreenScheme";
+	    	actionLog.add("associating IssueTypeScreenScheme");
 	    	associateIssueTypeScreenScheme(data, newProject);
 	    	
-		    currentAction = "associating FieldConfigurationScheme";
+		    actionLog.add("associating FieldConfigurationScheme");
 		    associateFieldConfigurationScheme(data, newProject);
 		    
-	    	currentAction = "associating NotificationScheme";
+	    	actionLog.add("associating NotificationScheme");
 		    associateNotificationScheme(data, newProject);
 		    
-	    	currentAction = "associating PermissionScheme"; 
+	    	actionLog.add("associating PermissionScheme"); 
 		    associatePermissionScheme(data, newProject);
 		    	    	
-		    currentAction = "associating users in roles";
+		    actionLog.add("associating users in roles");
 		    response.addWarnings(associateUsersInRoles(data, newProject));
 		    
-		    currentAction = "associating CustomFields";
+		    actionLog.add("associating CustomFields");
 		    associateCustomFields(data, newProject);
 		    
-		    currentAction = "associating IssueTypeScheme";
-		    associateIssueTypeScheme(data, newProject);		    
+		    actionLog.add("associating IssueTypeScheme");
+		    associateIssueTypeScheme(data, newProject);
 	    }
 	    catch(Exception e) {
-	    	response.withError("An error ocurred when " + currentAction, e);
+	    	response.withError("An error ocurred when " + actionLog.getLast(), e);
 	    	try {
-	    		ComponentAccessor.getProjectManager().removeProject(newProject);
-	    		response.withError("Project not created.");
-	    		response.idOfCreatedProject = null;
+	    		response.withError("Project created, but it is incomplete.");
+	    		actionLog.removeLast();
+	    		response.withError("Actions that have been performed succesfully" + StringUtils.join(actionLog,","));
+	    		response.idOfCreatedProject = newProject.getId();
 	    	}catch(Exception e1) {
 	    		return response.withError("Project was created, but with errors. Attempt to remove project failed.", e);
 	    	}
@@ -232,13 +235,14 @@ public class ProjectBuilderResource {
 	}
 
 	private void associateNotificationScheme(ProjectData data, Project newProject) {
+		NotificationSchemeManager nsm = ComponentAccessor.getNotificationSchemeManager();
 		if (data.notificationScheme == null)
-	    	ComponentAccessor.getNotificationSchemeManager().addDefaultSchemeToProject(newProject);
+	    	nsm.addDefaultSchemeToProject(newProject);
 	    else {
-	    	Scheme notificationScheme = ComponentAccessor.getNotificationSchemeManager().getSchemeObject(data.notificationScheme);
+	    	Scheme notificationScheme = nsm.getSchemeObject(data.notificationScheme);
 	    	if (notificationScheme == null)
 	    		throw new IllegalArgumentException("NotificationScheme id " + data.notificationScheme + " not found");
-	    	ComponentAccessor.getNotificationSchemeManager().addSchemeToProject(newProject, notificationScheme);
+	    	nsm.addSchemeToProject(newProject, notificationScheme);
 	    }
 	}
 
