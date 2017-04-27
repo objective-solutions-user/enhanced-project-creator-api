@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>br.objective.jira</groupId>
 	<artifactId>enhanced-project-creator-api</artifactId>
-	<version>6.4.10.4-SNAPSHOT</version>
+	<version>6.4.10.4</version>
 	<organization>
 		<name>Objective</name>
 		<url>http://www.objective.com.br/</url>
@@ -16,7 +16,7 @@
 		<url>https://github.com/objective-solutions-user/enhanced-project-creator-api-6.4.10</url>
 		<connection>scm:git:git@github.com:objective-solutions-user/enhanced-project-creator-api-6.4.10.git</connection>
 		<developerConnection>scm:git:git@github.com:objective-solutions-user/enhanced-project-creator-api-6.4.10.git</developerConnection>
-	  <tag>HEAD</tag>
+	  <tag>enhanced-project-creator-api-6.4.10.4</tag>
   </scm>
 	<dependencies>
 		<dependency>
